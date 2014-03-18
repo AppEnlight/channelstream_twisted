@@ -1,9 +1,13 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from pyramid.view import view_config
+from pyramid.httpexceptions import HTTPUnauthorized
+from pyramid.security import forget
 from channelstream.user import User
 from channelstream.connection import Connection
 from channelstream.channel import Channel
+
 
 log = logging.getLogger(__name__)
 
@@ -166,6 +170,11 @@ class ServerViews(object):
             })
         return json_data
 
+    @view_config(context='channelstream.wsgi_views.wsgi_security:RequestBasicChannenge')
+    def admin_challenge(self):
+        response = HTTPUnauthorized()
+        response.headers.update(forget(self.request))
+        return response
 
     @view_config(route_name='admin',
                  renderer='templates/admin.jinja2', permission='access')

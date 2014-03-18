@@ -14,7 +14,7 @@ class Connection(object):
 
     def add_message(self, message):
         if self.socket:
-            self.last_update = datetime.datetime.utcnow()
+            self.last_active = datetime.datetime.utcnow()
             self.socket.sendMessage(json.dumps([message]))
 
     def mark_for_gc(self):

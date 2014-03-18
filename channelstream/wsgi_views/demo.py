@@ -6,11 +6,14 @@ from pyramid.view import view_config
 
 possible_channels = set(['pub_chan', 'pub_chan2', 'notify'])
 
+
 class DemoViews(object):
     def __init__(self, request):
         self.request = request
         self.request.response.headers.add('Cache-Control', 'no-cache, no-store')
         self.server_port = self.request.registry.server_config['port']
+        self.secret_headers = {'x-channelstream-secret': 'secret',
+                               'Content-Type': 'application/json'}
 
     @view_config(route_name='section_action', renderer='string',
                  request_method="OPTIONS")
@@ -49,7 +52,8 @@ class DemoViews(object):
                    "channels": channels
         }
         url = 'http://127.0.0.1:%s/connect' % self.server_port
-        response = requests.post(url, data=json.dumps(payload)).json()
+        response = requests.post(url, data=json.dumps(payload),
+                                 headers=self.secret_headers).json()
         payload['status'] = response['status']
         return payload
 
@@ -58,13 +62,15 @@ class DemoViews(object):
                  renderer='json', request_method="POST")
     def subscribe(self):
         """"can be used to subscribe specific connection to other channels"""
-        channels = self.request.json_body['channels']
+        self.request_data = self.request.json_body
+        channels = self.request_data['channels']
         possible_channels.intersection(channels)
         payload = {"conn_id": self.request_data.get('conn_id', ''),
                    "channels": self.request_data.get('channels', [])
         }
         url = 'http://127.0.0.1:%s/subscribe' % self.server_port
-        response = requests.post(url, data=json.dumps(payload)).json()
+        response = requests.post(url, data=json.dumps(payload),
+                                 headers=self.secret_headers).json()
         return response
 
     @view_config(route_name='section_action',
@@ -80,7 +86,8 @@ class DemoViews(object):
             'message': self.request_data.get('message')
         }
         url = 'http://127.0.0.1:%s/message' % self.server_port
-        response = requests.post(url, data=json.dumps(payload)).json()
+        response = requests.post(url, data=json.dumps(payload),
+                                 headers=self.secret_headers).json()
         return response
 
     @view_config(route_name='section_action',
@@ -101,5 +108,6 @@ class DemoViews(object):
                    })
         ]
         url = 'http://127.0.0.1:%s/channel_config' % self.server_port
-        response = requests.post(url, data=json.dumps(payload)).json()
+        response = requests.post(url, data=json.dumps(payload),
+                                 headers=self.secret_headers).json()
         return response

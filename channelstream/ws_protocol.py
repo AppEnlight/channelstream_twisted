@@ -23,9 +23,13 @@ class BroadcastServerProtocol(WebSocketServerProtocol):
             raise HttpException(401, 'Unauthorized')
 
     def onMessage(self, payload, isBinary):
+        now = datetime.utcnow()
         if self.conn_id in self.factory.connections:
-            self.factory.connections[
-                self.conn_id].last_active = datetime.utcnow()
+            connection = self.factory.connections[self.conn_id]
+            connection.last_active = now
+            user = self.factory.users.get(connection.user_name)
+            if user:
+                user.last_active = now
 
     def connectionLost(self, reason):
         WebSocketServerProtocol.connectionLost(self, reason)
@@ -57,13 +61,13 @@ class BroadcastServerFactory(WebSocketServerFactory):
 
     def gc_users(self):
         threshold = datetime.utcnow() - timedelta(days=1)
-        for user in self.users.items():
+        for user in self.users.values():
             if user.last_active < threshold:
                 self.users.pop(user.user_name)
 
     def gc_conns(self):
         start_time = datetime.utcnow()
-        threshold = start_time - timedelta(seconds=16)
+        threshold = start_time - timedelta(seconds=5)
         collected_conns = []
         # collect every ref in chanels
         for channel in self.channels.itervalues():
