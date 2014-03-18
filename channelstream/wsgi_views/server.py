@@ -217,6 +217,7 @@ class ServerViews(object):
         # return requested channel info
         for channel_inst in [chan for chan in ws_factory.channels.values() if
                              chan.name in req_channels]:
+
             json_data["channels"][channel_inst.name] = {}
             json_data["channels"][channel_inst.name]['total_users'] = len(
                 channel_inst.connections)

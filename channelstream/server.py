@@ -13,10 +13,12 @@ from ws_protocol import BroadcastServerFactory, BroadcastServerProtocol
 
 def run_server(config):
     if config['debug']:
-        log.startLogging(sys.stdout)
         debug = True
     else:
         debug = False
+
+    observer = log.PythonLoggingObserver()
+    observer.start()
 
     if debug:
         log.startLogging(sys.stdout)

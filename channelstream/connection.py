@@ -12,10 +12,13 @@ class Connection(object):
     def __repr__(self):
         return '<Connection: id:%s, owner:%s>' % (self.id, self.user_name)
 
-    def add_message(self, message):
+    def add_message(self, message=None):
         if self.socket:
             self.last_active = datetime.datetime.utcnow()
-            self.socket.sendMessage(json.dumps([message]))
+            if message:
+                self.socket.sendMessage(json.dumps([message]))
+            else:
+                self.socket.sendMessage(json.dumps([]))
 
     def mark_for_gc(self):
         # set last active time for connection 1 hour in past for GC

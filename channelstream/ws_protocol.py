@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 class BroadcastServerProtocol(WebSocketServerProtocol):
     def onOpen(self):
         self.factory.register(self)
-        self.tick()
+        reactor.callLater(5, self.tick)
 
 
     def onConnect(self, request):
@@ -24,6 +24,7 @@ class BroadcastServerProtocol(WebSocketServerProtocol):
 
     def onMessage(self, payload, isBinary):
         now = datetime.utcnow()
+        print self.conn_id, self.factory.connections
         if self.conn_id in self.factory.connections:
             connection = self.factory.connections[self.conn_id]
             connection.last_active = now
@@ -36,7 +37,8 @@ class BroadcastServerProtocol(WebSocketServerProtocol):
         self.factory.unregister(self)
 
     def tick(self):
-        self.sendMessage('[]')
+        connection = self.factory.connections[self.conn_id]
+        connection.add_message()
         reactor.callLater(5, self.tick)
 
 
@@ -67,7 +69,7 @@ class BroadcastServerFactory(WebSocketServerFactory):
 
     def gc_conns(self):
         start_time = datetime.utcnow()
-        threshold = start_time - timedelta(seconds=5)
+        threshold = start_time - timedelta(seconds=15)
         collected_conns = []
         # collect every ref in chanels
         for channel in self.channels.itervalues():
@@ -85,6 +87,9 @@ class BroadcastServerFactory(WebSocketServerFactory):
                     self.users[conn.user_name].connections.remove(conn)
             if conn.id in self.connections:
                 del self.connections[conn.id]
+            # make sure connection is closed after we garbage collected it from our list
+            if conn.socket:
+                conn.socket.sendClose()
         log.info('cleanup time %s' % (datetime.utcnow() - start_time))
 
         reactor.callLater(5, self.gc_conns)
