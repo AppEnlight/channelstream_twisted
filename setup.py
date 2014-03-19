@@ -16,7 +16,7 @@ setup(name='channelstream',
       packages=find_packages(),
       include_package_data=True,
       install_requires=[
-          'trollius',
+          'twisted',
           'autobahn',
           'pyramid',
           'pyramid_jinja2',
