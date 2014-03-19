@@ -25,11 +25,11 @@ class Connection(object):
 
     def add_message(self, message=None):
         if self.socket:
-            self.last_active = datetime.datetime.utcnow()
             if message:
                 self.socket.sendMessage(json.dumps([message]))
             else:
                 self.socket.sendMessage(json.dumps([]))
+        self.last_active = datetime.datetime.utcnow()
 
     def mark_for_gc(self):
         # set last active time for connection 1 hour in past for GC

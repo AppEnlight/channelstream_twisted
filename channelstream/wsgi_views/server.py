@@ -4,14 +4,16 @@ from datetime import datetime
 from pyramid.view import view_config
 from pyramid.httpexceptions import HTTPUnauthorized
 from pyramid.security import forget
+from pyramid.response import Response
 
 from channelstream import total_messages, started_on, total_unique_messages
 from channelstream.user import User, users
 from channelstream.connection import Connection, connections
 from channelstream.channel import Channel, channels
-
+from channelstream.ext_json import json
 
 log = logging.getLogger(__name__)
+
 
 class ServerViews(object):
     def __init__(self, request):
@@ -84,6 +86,24 @@ class ServerViews(object):
             if user.user_name in channel.connections:
                 subscribed_channels.append(channel.name)
         return subscribed_channels
+
+
+    @view_config(route_name='action', match_param='action=listen',
+                 request_method="OPTIONS", renderer='string')
+    def handle_CORS(self):
+        self.request.response.headers.add('Access-Control-Allow-Origin', '*')
+        self.request.response.headers.add('XDomainRequestAllowed', '1')
+        self.request.response.headers.add('Access-Control-Allow-Methods',
+                                          'GET, POST, OPTIONS, PUT')
+        self.request.response.headers.add('Access-Control-Allow-Headers',
+                                          'Content-Type, Depth, User-Agent, '
+                                          'X-File-Size, X-Requested-With, '
+                                          'If-Modified-Since, X-File-Name, '
+                                          'Cache-Control, Pragma, Origin, '
+                                          'Connection, Referer, Cookie')
+        self.request.response.headers.add('Access-Control-Max-Age', '86400')
+        # self.request.response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return {}
 
     @view_config(route_name='action', match_param='action=user_status',
                  renderer='json', permission='access')
@@ -169,7 +189,8 @@ class ServerViews(object):
             })
         return json_data
 
-    @view_config(context='channelstream.wsgi_views.wsgi_security:RequestBasicChannenge')
+    @view_config(
+        context='channelstream.wsgi_views.wsgi_security:RequestBasicChannenge')
     def admin_challenge(self):
         response = HTTPUnauthorized()
         response.headers.update(forget(self.request))
