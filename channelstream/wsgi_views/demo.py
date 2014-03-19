@@ -1,8 +1,10 @@
 import json
 import random
-import requests
 import uuid
+
+import requests
 from pyramid.view import view_config
+
 
 possible_channels = set(['pub_chan', 'pub_chan2', 'notify'])
 
@@ -86,7 +88,7 @@ class DemoViews(object):
             'message': self.request_data.get('message')
         }
         url = 'http://127.0.0.1:%s/message' % self.server_port
-        response = requests.post(url, data=json.dumps(payload),
+        response = requests.post(url, data=json.dumps([payload]),
                                  headers=self.secret_headers).json()
         return response
 

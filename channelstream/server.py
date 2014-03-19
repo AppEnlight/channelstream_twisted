@@ -16,7 +16,7 @@ def run_server(config):
         debug = True
     else:
         debug = False
-
+    debug = True
     observer = log.PythonLoggingObserver()
     observer.start()
 
@@ -27,16 +27,17 @@ def run_server(config):
     factory = ServerFactory(
         "ws://%s:%s" % (config['host'], config['port']),
         debug=debug,
-        debugCodePaths=debug)
+        debugCodePaths=debug,
+        externalPort=config['external_port'])
 
     factory.protocol = BroadcastServerProtocol
     wsResource = WebSocketResource(factory)
     ## create a Twisted Web WSGI resource for our Pyramid server
-    app = make_app(config, factory)
+    app = make_app(config)
     wsgiResource = WSGIResource(reactor, reactor.getThreadPool(), app)
     ## create a root resource serving everything via WSGI/, but
-    ## the path "/listen" served by our WebSocket stuff
-    rootResource = WSGIRootResource(wsgiResource, {'listen': wsResource})
+    ## the path "/ws" served by our WebSocket stuff
+    rootResource = WSGIRootResource(wsgiResource, {'ws': wsResource})
     ## create a Twisted Web Site and run everything
     ##
     site = Site(rootResource)

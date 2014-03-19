@@ -1,6 +1,10 @@
 from twisted.internet import reactor
 import logging
 
+from channelstream.user import users
+from channelstream.connection import connections
+from channelstream.channel import channels
+
 from autobahn.twisted.websocket import WebSocketServerFactory, \
     WebSocketServerProtocol
 from  autobahn.websocket.http import HttpException
@@ -19,16 +23,15 @@ class BroadcastServerProtocol(WebSocketServerProtocol):
 
     def onConnect(self, request):
         self.conn_id = request.params.get('conn_id')[0]
-        if self.conn_id not in self.factory.connections:
+        if self.conn_id not in connections:
             raise HttpException(401, 'Unauthorized')
 
     def onMessage(self, payload, isBinary):
         now = datetime.utcnow()
-        print self.conn_id, self.factory.connections
-        if self.conn_id in self.factory.connections:
-            connection = self.factory.connections[self.conn_id]
+        if self.conn_id in connections:
+            connection = connections[self.conn_id]
             connection.last_active = now
-            user = self.factory.users.get(connection.user_name)
+            user = users.get(connection.user_name)
             if user:
                 user.last_active = now
 
@@ -37,9 +40,10 @@ class BroadcastServerProtocol(WebSocketServerProtocol):
         self.factory.unregister(self)
 
     def tick(self):
-        connection = self.factory.connections[self.conn_id]
-        connection.add_message()
-        reactor.callLater(5, self.tick)
+        if self.conn_id in connections:
+            connection = connections[self.conn_id]
+            connection.add_message()
+            reactor.callLater(5, self.tick)
 
 
 class BroadcastServerFactory(WebSocketServerFactory):
@@ -48,31 +52,31 @@ class BroadcastServerFactory(WebSocketServerFactory):
     currently connected clients.
     """
 
-    def __init__(self, url, debug=False, debugCodePaths=False):
+    def __init__(self, url, debug=False, debugCodePaths=False, externalPort=None):
         WebSocketServerFactory.__init__(self, url, debug=debug,
-                                        debugCodePaths=debugCodePaths)
-        self.users = {}
-        self.connections = {}
-        self.channels = {}
-        self.total_messages = 0
-        self.total_unique_messages = 0
-        self.started_on = datetime.utcnow()
+                                        debugCodePaths=debugCodePaths,
+                                        externalPort=externalPort)
 
         reactor.callLater(5, self.gc_conns)
         reactor.callLater(60, self.gc_users)
 
     def gc_users(self):
+        start_time = datetime.utcnow()
         threshold = datetime.utcnow() - timedelta(days=1)
-        for user in self.users.values():
+        for user in users.values():
             if user.last_active < threshold:
-                self.users.pop(user.user_name)
+                users.pop(user.user_name)
+        log.info('gc_users() time %s' % (datetime.utcnow() - start_time))
+
+
+
 
     def gc_conns(self):
         start_time = datetime.utcnow()
         threshold = start_time - timedelta(seconds=15)
         collected_conns = []
         # collect every ref in chanels
-        for channel in self.channels.itervalues():
+        for channel in channels.itervalues():
             for k, conns in channel.connections.items():
                 for conn in conns:
                     if conn.last_active < threshold:
@@ -82,36 +86,36 @@ class BroadcastServerFactory(WebSocketServerFactory):
                     del channel.connections[k]
         # remove old conns from users and conn dict
         for conn in collected_conns:
-            if conn.user_name in self.users:
-                if conn in self.users[conn.user_name].connections:
-                    self.users[conn.user_name].connections.remove(conn)
-            if conn.id in self.connections:
-                del self.connections[conn.id]
+            if conn.user_name in users:
+                if conn in users[conn.user_name].connections:
+                    users[conn.user_name].connections.remove(conn)
+            if conn.id in connections:
+                del connections[conn.id]
             # make sure connection is closed after we garbage collected it from our list
             if conn.socket:
                 conn.socket.sendClose()
-        log.info('cleanup time %s' % (datetime.utcnow() - start_time))
+        log.info('gc_conns() time %s' % (datetime.utcnow() - start_time))
 
         reactor.callLater(5, self.gc_conns)
 
     def register(self, client):
-        if client.conn_id in self.connections:
-            self.connections[client.conn_id].socket = client
+        if client.conn_id in connections:
+            connections[client.conn_id].socket = client
             print("registered client {}".format(client.peer))
         else:
             raise HttpException(403, 'Not Found')
 
     def unregister(self, client):
-        if client.conn_id in self.connections:
-            connection = self.connections[client.conn_id]
+        if hasattr(client,'conn_id') and client.conn_id in connections:
+            connection = connections[client.conn_id]
 
-            if connection.user_name in self.users:
+            if connection.user_name in users:
                 # remove conn id instance from user
-                self.users[connection.user_name].connections.remove(connection)
+                users[connection.user_name].connections.remove(connection)
             # remove from channel
-            for channel in self.channels.itervalues():
+            for channel in channels.itervalues():
                 if connection.user_name in channel.connections:
                     channel.connections[connection.user_name].remove(connection)
             # remove from conections
-            del self.connections[client.conn_id]
+            del connections[client.conn_id]
             print("unregistered client {}".format(client.peer))

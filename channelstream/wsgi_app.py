@@ -12,7 +12,7 @@ def datetime_adapter(obj, request):
     return obj.isoformat()
 
 
-def make_app(server_config, factory):
+def make_app(server_config):
     config = Configurator(root_factory=APIFactory)
 
     def check_function(username, password, request):
@@ -30,10 +30,8 @@ def make_app(server_config, factory):
     config.add_renderer('json', json_renderer)
     config.add_static_view('static', path='channelstream:static/')
     config.include('pyramid_jinja2')
-    config.include('wsgi_views')
-    config.scan('wsgi_views')
-
-    config.registry.ws_factory = factory
+    config.include('channelstream.wsgi_views')
+    config.scan('channelstream.wsgi_views')
     config.registry.server_config = server_config
     app = config.make_wsgi_app()
     return app
